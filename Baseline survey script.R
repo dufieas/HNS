@@ -15,7 +15,7 @@ library(janitor)
 
 ## Importing data set. Using data exported on 23/12/2024
 
-Mangwana_Baseline_Survey <- read_excel("~/Mangwana/MERL analyses in R/Mangwana - Baseline Survey.xlsx", 
+Mangwana_Baseline_Survey <- read_excel("Mangwana - Baseline Survey.xlsx", 
                                        sheet = "Forms")
 head(Mangwana_Baseline_Survey)
 summary(Mangwana_Baseline_Survey)
@@ -164,11 +164,11 @@ print(Median_hhs_score)
 
 ## Importing dry season dataset
 
-Drought_repeat_Survey <- read_excel("~/Mangwana/MERL analyses in R/Mangwana - Baseline Survey.xlsx", 
+Drought_repeat_Survey <- read_excel("Mangwana - Baseline Survey.xlsx",
                                        sheet = "Repeat- crop_drought_season")
 
 
-Mangwana_Baseline_Survey <- read_excel("~/Mangwana/MERL analyses in R/Mangwana - Baseline Survey.xlsx", 
+Mangwana_Baseline_Survey <- read_excel("Mangwana - Baseline Survey.xlsx", 
                                        sheet = "Forms")
 
 ## Constant variables
@@ -239,7 +239,7 @@ agric_gross <- sum(Baseline_drought$gross_agric_income)
 
 ## Importing data
 
-Agroforestry_repeat_Survey <- read_excel("~/Mangwana/MERL analyses in R/Mangwana - Baseline Survey.xlsx", 
+Agroforestry_repeat_Survey <- read_excel("Mangwana - Baseline Survey.xlsx", 
                                   sheet = "Repeat- product_silviculture")
 
 ## Selecting a subset of data
@@ -283,7 +283,7 @@ agroforestry_gross <- sum(Baseline_drought_agroforestry$gross_income)
 
 ## Importing data
 
-Animal_repeat_Survey <- read_excel("~/Mangwana/MERL analyses in R/Mangwana - Baseline Survey.xlsx", 
+Animal_repeat_Survey <- read_excel("Mangwana - Baseline Survey.xlsx",
                                          sheet = "Repeat- Animals_Raised")
 
 Baseline_drought_animals <- Animal_repeat_Survey %>% 
@@ -301,7 +301,17 @@ Baseline_drought_animals <- Animal_repeat_Survey %>%
   rename(qty_sold = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.qty_sale_livestock,
          price_livestock = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.price_livestock,
          feeding_expense = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_feeding_livestock,
-         labour_expense =  form.)
+         labour_expense =  form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_labor_livestock,
+         medical_expense = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_medication_livestock,
+         equipment_expense = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_equipment_livestock,
+         maintain_expense = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_other_livestock) %>% 
+  
+  mutate(across(c(qty_sold,price_livestock,feeding_expense, labour_expense, medical_expense, equipment_expense, maintain_expense), as.numeric)) %>% 
+  
+  mutate(animal_income = qty_sold * price_livestock,
+         total_expense = rowSums(across(c(feeding_expense,labour_expense, medical_expense, equipment_expense, maintain_expense))),
+         gross_animal_income = animal_income - total_expense)
+  
   
   
   
@@ -309,7 +319,7 @@ Baseline_drought_animals <- Animal_repeat_Survey %>%
 
 ## Importing rainy season dataset
 
-Rainy_repeat_Survey <- read_excel("~/Mangwana/MERL analyses in R/Mangwana - Baseline Survey.xlsx", 
+Rainy_repeat_Survey <- read_excel("Mangwana - Baseline Survey.xlsx",
                                   sheet = "Repeat- crop_chuvosa_season")
 
 
@@ -318,7 +328,7 @@ Baseline_rainy <- Rainy_repeat_Survey %>%
   
   inner_join(Mangwana_Baseline_Survey %>%  select(number,form.Section_IV_ProductionAreas.que_tipo_de_inqurito_est_a_realizar), by = c("number" = "number")) %>% 
   
-  filter(form.Section_IV_ProductionAreas.que_tipo_de_inqurito_est_a_realizar == "inqurito_de_base_para_as_duas_ltimas_pocas") 
+  filter(form.Section_IV_ProductionAreas.que_tipo_de_inqurito_est_a_realizar == "") 
 
 
 ## Alternative calculation
