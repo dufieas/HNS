@@ -1,10 +1,13 @@
-## Packages and libraries
+---
+title: "Baseline long survey"
+author: "Abigail"
+date: "2025-01-06"
+output: pdf_document
+---
 
-install.packages("tidyverse")
-install.packages("dplyr")
-install.packages("here")
-install.packages("skimr")
-install.packages("janitor")
+## Installing packages and calling out libraries
+
+```{r setup, include=FALSE}
 library(tidyverse)
 library(readxl)
 library(tidyr)
@@ -12,16 +15,29 @@ library(dplyr)
 library(here)
 library(skimr)
 library(janitor)
+```
 
-## Importing data set. Using data exported on 23/12/2024
+## Importing data set 
 
-Mangwana_Baseline_Survey <- read_excel("Mangwana - Baseline Survey.xlsx", 
+The data was exported from CommCare on 23/12/2024.
+
+```{r}
+Mangwana_Baseline_Survey <- read_excel("~/Mangwana/MERL analyses in R/Mangwana - Baseline Survey.xlsx", 
                                        sheet = "Forms")
-head(Mangwana_Baseline_Survey)
 summary(Mangwana_Baseline_Survey)
+```
 
 
-## Selecting indicators for child's DQQ, renaming and changing all categories into binary.
+## Selecting indicators of interest
+A sub set of the indicators were selected depending on the goal of the calculation and the indicators needed.
+
+### Number of peeople with diverse and adequate diet
+
+I made a separate calculation for the child and the adult.
+
+#### Selecting indicators for child's diverse and adequate diet
+
+```{r}
 Selected_Child_indicators <- Mangwana_Baseline_Survey %>% 
   select(form.Section_II_group.voc_tem_um_filho_entre_0_e_24_meses, form.Section_II_group.llquidos_formula_infantil, form.Section_II_group.leite_de_origem_animal_incluindo_lquido_ou_em_p,form.Section_II_group.achocolatado_como_milo_cremora_ou_leite_condensado,
          form.Section_II_group.sumos_ou_sumos_em_p,`form.Section_II_group.refrescos_como_coca-cola_fanta_frozy_ou_fizz_ou_bebidas_energticas_como_o_r`, form.Section_II_group.ch_caf_ou_bebidas__base_de_plantas_ou_ervas, form.Section_II_group.sopa_ou_caldo, form.Section_II_group.iogurte, form.Section_II_group.arroz_po_massa_esparguete_xima_de_farinha_de_milho_processada_papas_de_fari,form.Section_II_group.brculos_espinafres_folhas_de_moringa_folhas_de_amaranto_ou_quiabo_de_folha,form.Section_II_group.camaro_voador_caracol_da_terra_trmita_ou_ishwa,
@@ -117,8 +133,11 @@ Selected_Child_indicators <- Mangwana_Baseline_Survey %>%
     
 
   )
+```
 
-## Displaying updated data
+
+#### Displaying updated data and calculation
+```{r}
 
 head(Selected_Child_indicators)
 
@@ -131,8 +150,17 @@ head(Selected_Child_indicators)
   
   mean_gdr_score <- round(mean(Selected_Child_indicators$gdr_score),1) # Calculating the average GDR score for the entire population
   print(mean_gdr_score)
-  
-## Selecting indicators for household's resilient to shocks
+```
+
+### Selecting indicators to calculate adult diverse and adequate diet
+
+Note: I did not find any adult data in the Excel file downoaded or ODataFeed. I tried answering survey questions but did not see the questions in th mobile App. 
+Therefore questions under this section “ler__agora_gostaria_de_lhe_fazer_algumas_perguntas_de_sim_ou_no_sobre_os_al” do not appear in the survey. I confirmed it by filling a form myself. After the “KFC, Debonairs Pizza, Teka Famba, Burger House, Flaming Dogs or other places that serve pizza or
+burgers?” question, the survey moves to Section III.
+
+### Selecting indicators for Resilience to shocks
+
+```{r}
 Resilience <- Mangwana_Baseline_Survey %>% 
   select(form.Section_III_group.missed_food, form.Section_III_group.Months_missed_food, form.Section_III_group.you_feared_HH_not_have_enough_food,form.Section_III_group.how_may_times_HH_not_have_enough_food,
          form.Section_III_group.not_enough_food,form.Section_III_group.how_many_times_not_enough_food, form.Section_III_group.all_day_night_not_eating, form.Section_III_group.how_many_times_all_day_night_not_eating) %>% # Selected indicators of interest
@@ -154,12 +182,20 @@ print(Average_months_of_adequate_food)
 
 Median_hhs_score <- median(Resilience$hhs_score) # Median value of HHS score
 print(Median_hhs_score)
+```
+#### Displaying updated data and calculation
 
+```{r}
+head(Resilience)
 
-### ------------------------------------------------------------------------###
+print(Average_months_of_adequate_food)
 
-#### Agriculture indicators
+print(Median_hhs_score)
+```
 
+## Agriculture indicators
+
+```{r}
 ## Merging the general data sheet and the repeat agriculture sheet to filter to baseline data
 
 ## Importing dry season dataset
@@ -233,10 +269,12 @@ print(total_crop_income)
 ## Agriculture gross income
 
 agric_gross <- sum(Baseline_drought$gross_agric_income)
+agric_gross
+```
 
+## Agroforestry indicators
 
-##----------------------------------------##
-
+```{r}
 ## Calculating agroforestry indicators
 
 ## Importing data
@@ -277,12 +315,12 @@ Baseline_drought_agroforestry <- Agroforestry_repeat_Survey %>%
 ## Agroforestry gross income
 
 agroforestry_gross <- sum(Baseline_drought_agroforestry$gross_income)
+agroforestry_gross
+```
 
+## Livestock indicators
 
-##-----------------------------------------------##
-
-## Animal husbandry
-
+```{r}
 ## Importing data
 
 Animal_repeat_Survey <- read_excel("Mangwana - Baseline Survey.xlsx",
@@ -315,75 +353,6 @@ Baseline_drought_animals <- Animal_repeat_Survey %>%
          gross_animal_income = animal_income - total_expense)
 
  gross_animal <- sum(Baseline_drought_animals$gross_animal_income)
- gross_animal
- 
- ###---------------------------------------------------------------###
- 
- ## Fish Farming
- 
- ## Importing data
- 
-Fish_repeat_Survey <- read_excel("Mangwana - Baseline Survey.xlsx",
-                                    sheet = "Repeat- type_fish")
- 
- 
-Baseline_drought_fish <- Fish_repeat_Survey %>% 
-  mutate(number = as.character(number__0)) %>% 
-  
-  inner_join(Mangwana_Baseline_Survey %>%  select(number,form.Section_IV_ProductionAreas.que_tipo_de_inqurito_est_a_realizar), by = c("number" = "number")) %>% 
-  
-  filter(form.Section_IV_ProductionAreas.que_tipo_de_inqurito_est_a_realizar == "inqurito_de_base_para_as_duas_ltimas_pocas") %>% 
-  
-  mutate(across(everything(), ~ case_when(. == "---" ~ "0",
-                                          . == " " ~ "0",
-                                          is.na(.) ~ "0",
-                                          TRUE ~ as.character(.)))) %>%
-  
-  rename(fish_qty_produced = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.qty_production_Aquaculture,
-         fish_qty_sold = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.qty_sold_Aquaculture,
-         installation_expense = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.quanto_gastou_no_ltimo_ano_com_os_custos_de_instalaes_em_mzn_na_produo_de_p,
-         facilities_cost = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.expenditures_facilities_Aquaculture,
-         fish_equipment_expense = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.expenditures_equipment_Aquaculture,
-         fingerlings_expense = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.expenditures_fingerlings_Aquaculture,
-         fish_labour_cost = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.expenditures_labor_Aquaculture,
-         fish_maintenance_cost = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.expenditures_other_Aquaculture) %>% 
-  
-  mutate(across(c(fish_qty_produced,fish_qty_sold,installation_expense,facilities_cost,fish_equipment_expense,fingerlings_expense,
-                  fish_labour_cost,fish_maintenance_cost,as.numeric))) %>% 
-  
-  mutate(fish_income = )
-  
-
-
-  
- ## Calculating gross income in PPP
-
-total_gross_income <- agric_gross + gross_animal + agroforestry_gross
-
-PPP_gross_income <- round(total_gross_income/PPP)
-PPP_gross_income
-
-  
-###-------------------------------------------------------#### 
-
-## Importing rainy season dataset
-
-Rainy_repeat_Survey <- read_excel("Mangwana - Baseline Survey.xlsx",
-                                  sheet = "Repeat- crop_chuvosa_season")
-
-
-Baseline_rainy <- Rainy_repeat_Survey %>%
-  mutate(number = as.character(number__0)) %>% 
-  
-  inner_join(Mangwana_Baseline_Survey %>%  select(number,form.Section_IV_ProductionAreas.que_tipo_de_inqurito_est_a_realizar), by = c("number" = "number")) %>% 
-  
-  filter(form.Section_IV_ProductionAreas.que_tipo_de_inqurito_est_a_realizar == "") 
-
-
-## Alternative calculation
-#total_productivity <-  sum(Baseline_drought$productivity)
-#print(total_productivity)
-#total_income <- sum(Baseline_drought$qty_crops_produced) * sum(Baseline_drought$price_per_unit_sold)
-#print(total_production)
-#productivity_ <- (total_income*number_dryseason_weeks)/Standard_workhours
+  gross_animal
+```
 
