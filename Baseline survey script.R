@@ -176,6 +176,8 @@ number_dryseason_weeks <- 23
 
 Standard_workhours <- 8
 
+PPP <- 24.95 ## Current (2025) PPP. Source: https://www.imf.org/external/datamapper/PPPEX@WEO/MOZ?zoom=MOZ&highlight=MOZ
+
 ## Data manipulation
 
 Baseline_drought <- Drought_repeat_Survey %>%
@@ -311,11 +313,57 @@ Baseline_drought_animals <- Animal_repeat_Survey %>%
   mutate(animal_income = qty_sold * price_livestock,
          total_expense = rowSums(across(c(feeding_expense,labour_expense, medical_expense, equipment_expense, maintain_expense))),
          gross_animal_income = animal_income - total_expense)
+
+ gross_animal <- sum(Baseline_drought_animals$gross_animal_income) 
+ 
+ ###---------------------------------------------------------------###
+ 
+ ## Fish Farming
+ 
+ ## Importing data
+ 
+Fish_repeat_Survey <- read_excel("Mangwana - Baseline Survey.xlsx",
+                                    sheet = "Repeat- type_fish")
+ 
+ 
+Baseline_drought_fish <- Fish_repeat_Survey %>% 
+  mutate(number = as.character(number__0)) %>% 
   
+  inner_join(Mangwana_Baseline_Survey %>%  select(number,form.Section_IV_ProductionAreas.que_tipo_de_inqurito_est_a_realizar), by = c("number" = "number")) %>% 
   
+  filter(form.Section_IV_ProductionAreas.que_tipo_de_inqurito_est_a_realizar == "inqurito_de_base_para_as_duas_ltimas_pocas") %>% 
   
+  mutate(across(everything(), ~ case_when(. == "---" ~ "0",
+                                          . == " " ~ "0",
+                                          is.na(.) ~ "0",
+                                          TRUE ~ as.character(.)))) %>%
   
+  rename(fish_qty_produced = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.qty_production_Aquaculture,
+         fish_qty_sold = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.qty_sold_Aquaculture,
+         installation_expense = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.quanto_gastou_no_ltimo_ano_com_os_custos_de_instalaes_em_mzn_na_produo_de_p,
+         facilities_cost = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.expenditures_facilities_Aquaculture,
+         fish_equipment_expense = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.expenditures_equipment_Aquaculture,
+         fingerlings_expense = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.expenditures_fingerlings_Aquaculture,
+         fish_labour_cost = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.expenditures_labor_Aquaculture,
+         fish_maintenance_cost = form.Section_IV_ProductionAreas.Section_IV_V_FishFarming.type_fish.expenditures_other_Aquaculture) %>% 
   
+  mutate(across(c(fish_qty_produced,fish_qty_sold,installation_expense,facilities_cost,fish_equipment_expense,fingerlings_expense,
+                  fish_labour_cost,fish_maintenance_cost,as.numeric))) %>% 
+  
+  mutate(fish_income = )
+  
+
+
+  
+ ## Calculating gross income in PPP
+
+total_gross_income <- agric_gross + gross_animal + agroforestry_gross
+
+PPP_gross_income <- round(total_gross_income/PPP)
+PPP_gross_income
+
+  
+###-------------------------------------------------------#### 
 
 ## Importing rainy season dataset
 
