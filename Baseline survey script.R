@@ -265,18 +265,32 @@ Baseline_drought_agroforestry <- Agroforestry_repeat_Survey %>%
          fert_cost = form.Section_IV_ProductionAreas.Section_IV_III_Silviculture.product_silviculture.expenditures_fertilizantes_silviculture,
          labour_cost = form.Section_IV_ProductionAreas.Section_IV_III_Silviculture.product_silviculture.expenditures_labor_silviculture,
          equipment_expense = form.Section_IV_ProductionAreas.Section_IV_III_Silviculture.product_silviculture.expenditures_equipment_silviculture,
-         other_expense = form.Section_IV_ProductionAreas.Section_IV_III_Silviculture.product_silviculture.expenditures_other_silviculture) %>% 
+         other_expense = form.Section_IV_ProductionAreas.Section_IV_III_Silviculture.product_silviculture.expenditures_other_silviculture,
+         forest_daysperweek_work = form.Section_IV_ProductionAreas.Section_IV_III_Silviculture.product_silviculture.quantos_dias_por_semana_voc_trabalhou_para_silvicultura,
+         forest_hoursperweek_work = form.Section_IV_ProductionAreas.Section_IV_III_Silviculture.product_silviculture.quantas_horas_por_dia_voc_trabalhou_para_silvicultura,
+         forest_assist_daysperweek_work = form.Section_IV_ProductionAreas.Section_IV_III_Silviculture.product_silviculture.em_mdia_quantos_dias_por_semana_eles_ajudaram_voc,
+         forest_permanent_hoursperweek_work = form.Section_IV_ProductionAreas.Section_IV_III_Silviculture.product_silviculture.em_mdia_quantas_horas_por_dia_eles_trabalharam_para_voc,
+         forest_permanent_daysperweek_work = form.Section_IV_ProductionAreas.Section_IV_III_Silviculture.product_silviculture.em_mdia_por_quantos_dias_por_semana_voc_os_contratou,
+         forest_seasonal_daysperweek_work = `form.Section_IV_ProductionAreas.Section_IV_III_Silviculture.product_silviculture.copy-1-of-em_mdia_por_quantos_dias_por_semana_voc_os_contratou`) %>% 
   
-  mutate(across(c(agro_sale_price,agro_qty_sold,seed_cost,pesticide_cost,fert_cost,labour_cost,equipment_expense,other_expense),as.numeric)) %>% 
+  mutate(across(c(agro_sale_price,agro_qty_sold,seed_cost,pesticide_cost,fert_cost,labour_cost,equipment_expense,other_expense,forest_daysperweek_work,
+                  forest_hoursperweek_work,forest_permanent_hoursperweek_work,forest_permanent_daysperweek_work,forest_seasonal_daysperweek_work,forest_assist_daysperweek_work),as.numeric)) %>% 
   
-  mutate(crop_income = agro_sale_price * agro_qty_sold,
-         total_expenses = rowSums(across(c(seed_cost,pesticide_cost,fert_cost,labour_cost,equipment_expense,other_expense))),
-         gross_income = crop_income - total_expenses)
+  # Calculating productivity and gross income for Agroforestry
+  mutate(forest_crop_income = agro_sale_price * agro_qty_sold,
+         forest_total_expenses = rowSums(across(c(seed_cost,pesticide_cost,fert_cost,labour_cost,equipment_expense,other_expense))),
+         forest_gross_income = forest_crop_income - forest_total_expenses,
+         forest_personallabour_time = forest_daysperweek_work*forest_hoursperweek_work,
+         forest_assistedlabour_time = forest_assist_daysperweek_work *Standard_workhours,
+         forest_permantlabr_time = forest_permanent_hoursperweek_work * forest_permanent_daysperweek_work,
+         forest_seasonallabr_time = forest_seasonal_daysperweek_work * Standard_workhours,
+         forest_totallabr_days = rowSums(across(c(forest_personallabour_time,forest_assistedlabour_time,forest_permantlabr_time,forest_seasonallabr_time))),
+         forest_productivity = ifelse(forest_totallabr_days == 0, 0, forest_crop_income / forest_totallabr_days))
 
 
 ## Agroforestry gross income
 
-agroforestry_gross <- sum(Baseline_drought_agroforestry$gross_income)
+agroforestry_gross <- sum(Baseline_drought_agroforestry$forest_gross_income)
 
 
 ##-----------------------------------------------##
@@ -380,10 +394,5 @@ Baseline_rainy <- Rainy_repeat_Survey %>%
   filter(form.Section_IV_ProductionAreas.que_tipo_de_inqurito_est_a_realizar == "") 
 
 
-## Alternative calculation
-#total_productivity <-  sum(Baseline_drought$productivity)
-#print(total_productivity)
-#total_income <- sum(Baseline_drought$qty_crops_produced) * sum(Baseline_drought$price_per_unit_sold)
-#print(total_production)
-#productivity_ <- (total_income*number_dryseason_weeks)/Standard_workhours
+
 
