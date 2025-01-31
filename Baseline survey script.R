@@ -5,6 +5,12 @@ install.packages("dplyr")
 install.packages("here")
 install.packages("skimr")
 install.packages("janitor")
+install.packages("writexl")
+install.packages("httr")
+install.packages("jsonlite")
+
+library(httr)
+library(jsonlite)
 library(tidyverse)
 library(readxl)
 library(tidyr)
@@ -12,6 +18,43 @@ library(dplyr)
 library(here)
 library(skimr)
 library(janitor)
+library(writexl)
+library(ggplot2)
+
+
+## Trying to retrieve data from CommCare
+
+username <- "abigail@resiliencebv.com"
+password <- ""
+api_key <- "f9d710131e02efe464430fe9f3dcf150363303c6"
+
+project_name <- "tns-mangwana"
+
+base_url <- paste0("https://www.commcarehq.org/a/", project_name, "/api/v0.5/form/")
+
+all_forms <- list()
+page <- 1
+page_size <- 500
+while(TRUE) {
+  response <- GET(
+    url = paste0(base_url, "?limit=500&offset=", (page - 1) * page_size), 
+    authenticate(username, password, type = "basic")
+  )
+  response_content <- content(response, "text", encoding = "UTF-8")
+  response_json <- fromJSON(response_content, flatten = TRUE)
+  if (length(response_json$objects) == 0) break
+  
+  df <- as.data.frame(response_json$objects)
+  
+  df <- df %>% 
+    mutate(across(where(is.list), ~ map_chr(., toJSON, auto_unbox = TRUE)))
+  all_forms[[page]] <- df
+  page <- page + 1
+}
+form_data <- bind_rows(all_forms)
+
+
+####--------------------------------------------------------------#####
 
 ## Importing data set. Using data exported on 23/12/2024
 
@@ -20,6 +63,9 @@ Mangwana_Baseline_Survey <- read_excel("Mangwana - Baseline Survey.xlsx",
 head(Mangwana_Baseline_Survey)
 summary(Mangwana_Baseline_Survey)
 
+## Selecting only dry season records to be used for agricultural calculations
+Baseline_drought_data <- Mangwana_Baseline_Survey %>%
+  filter(form.Section_IV_ProductionAreas.que_tipo_de_inqurito_est_a_realizar == "inqurito_de_base_para_as_duas_ltimas_pocas")
 
 ## Selecting indicators for child's DQQ, renaming and changing all categories into binary.
 Selected_Child_indicators <- Mangwana_Baseline_Survey %>% 
@@ -76,8 +122,8 @@ Selected_Child_indicators <- Mangwana_Baseline_Survey %>%
   ) %>% 
 
   mutate(
-    
-    mdd_w = (rowSums(tibble(processed_porridge, unprocessed_porridge, root_crop_porridge) == 1) > 0) + # Grains, roots, tubers
+    ## Dietary Diversity Score for the entire population
+    dds = (rowSums(tibble(processed_porridge, unprocessed_porridge, root_crop_porridge) == 1) > 0) + # Grains, roots, tubers
       (rowSums(tibble(beans) == 1) > 0) + # Pulses
       (rowSums(tibble(nuts) == 1) > 0) + # Nuts and seeds
       (rowSums(tibble(animal_milk, cheese, yoghurt) == 1) > 0) + # Dairy
@@ -109,14 +155,49 @@ Selected_Child_indicators <- Mangwana_Baseline_Survey %>%
       (rowSums(tibble(fast_foods, instant_pasta) == 1) > 0) + # Fast food & instant noodles
       (rowSums(tibble(popcorns) == 1) > 0), # Packaged ultra-processed salty snacks
     
-    mdd_w_binary = ifelse(mdd_w >= 5, 1,0), # Calculating binary MDD_W
+    dds_binary = ifelse(dds >= 5, 1,0), # Calculating binary DDS
   
     all_5_binary = ifelse(all_5 == 5, 1,0), # Calculating binary All- 5
     
+    ncd_protect_binary = ifelse(ncd_protect >= 5, 1,0), # Calculating binary NCD protect
+    
+    ncd_risk_binary = ifelse(ncd_risk >= 5, 1,0), # Calculating binary NCD protect
+    
     gdr_score = (ncd_protect - ncd_risk) + 9, # Calculating General Dietary Recommendation (GDR score)
     
-
   )
+
+## Calculating the percentage of various binary scores
+
+dss_percentage <- Selected_Child_indicators %>% 
+  summarise(
+    total_count = n(),
+    count_five = sum(dds_binary == 1, na.rm = TRUE),
+    percentage_five = (count_five/total_count) * 100,
+    
+  )
+print(dss_percentage$percentage_five)
+
+## Calculating percentage of each All-5 score
+
+all_5_percentage <- Selected_Child_indicators %>%
+  group_by(all_5) %>% 
+  summarise(all_5_category = n()) %>%
+  mutate(percentage = (all_5_category / sum(all_5_category))*100)
+
+  ggplot(all_5_percentage, aes(x= as.factor(all_5_category), y = percentage, fill = as.factor(all_5_category))) + 
+  geom_bar(stat = "identity") +
+  labs(title = "Percentage Distribution of DSS Scores",
+       x = "all_5",
+       y = "Percentage (%)", 
+       fill = "Categories") +
+  theme_minimal() + 
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+        
+
 
 ## Displaying updated data
 
@@ -138,7 +219,7 @@ Resilience <- Mangwana_Baseline_Survey %>%
          form.Section_III_group.not_enough_food,form.Section_III_group.how_many_times_not_enough_food, form.Section_III_group.all_day_night_not_eating, form.Section_III_group.how_many_times_all_day_night_not_eating) %>% # Selected indicators of interest
   
   mutate(
-    months_adequate_food = 12 - sapply(strsplit(ifelse(form.Section_III_group.Months_missed_food == "---","",form.Section_III_group.Months_missed_food)," "), length), # Calculated the months of adequate food
+    MAHFP = 12 - sapply(strsplit(ifelse(form.Section_III_group.Months_missed_food == "---","",form.Section_III_group.Months_missed_food)," "), length), # Calculated the months of adequate food
       across(c(form.Section_III_group.how_may_times_HH_not_have_enough_food, form.Section_III_group.how_many_times_not_enough_food,form.Section_III_group.how_many_times_all_day_night_not_eating), ~ case_when(. %in% c("Sometimes", "Rarely") ~ 1, . == "---" ~ 0, . == "Frequently" ~ 2)), # Replaced three category indicators with integers
     hhs_score = form.Section_III_group.how_may_times_HH_not_have_enough_food + form.Section_III_group.how_many_times_not_enough_food + form.Section_III_group.how_many_times_all_day_night_not_eating,
     hunger_scores = case_when(hhs_score <= 1 ~ "Little to no hunger in the household",
@@ -149,7 +230,7 @@ Resilience <- Mangwana_Baseline_Survey %>%
 
 
 
-Average_months_of_adequate_food <- round(mean(Resilience$months_adequate_food),1) # Average months households had adequate food.
+Average_months_of_adequate_food <- round(mean(Resilience$MAHFP),1) # Average months households had adequate food.
 print(Average_months_of_adequate_food)
 
 Median_hhs_score <- median(Resilience$hhs_score) # Median value of HHS score
@@ -244,7 +325,7 @@ agric_gross <- sum(Baseline_drought$gross_agric_income)
 Agroforestry_repeat_Survey <- read_excel("Mangwana - Baseline Survey.xlsx", 
                                   sheet = "Repeat- product_silviculture")
 
-## Selecting a subset of data
+## Selecting a subset of data 
 Baseline_drought_agroforestry <- Agroforestry_repeat_Survey %>% 
   
   mutate(number = as.character(number__0)) %>% 
@@ -314,15 +395,32 @@ Baseline_drought_animals <- Animal_repeat_Survey %>%
                                           is.na(.) ~ "0",
                                           TRUE ~ as.character(.)))) %>%
   
-  rename(qty_sold = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.qty_sale_livestock,
+  rename(livestock_qty_sold = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.qty_sale_livestock,
          price_livestock = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.price_livestock,
-         feeding_expense = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_feeding_livestock,
-         labour_expense =  form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_labor_livestock,
-         medical_expense = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_medication_livestock,
-         equipment_expense = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_equipment_livestock,
-         maintain_expense = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_other_livestock) %>% 
-  
-  mutate(across(c(qty_sold,price_livestock,feeding_expense, labour_expense, medical_expense, equipment_expense, maintain_expense), as.numeric)) %>% 
+         livestock_feeding_expense = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_feeding_livestock,
+         livestock_labour_expense =  form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_labor_livestock,
+         livestock_medical_expense = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_medication_livestock,
+         livestock_equipment_expense = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_equipment_livestock,
+         livestock_maintain_expense = form.Section_IV_ProductionAreas.Section_IV_IV_Livestock.Animals_Raised.expenditures_other_livestock) %>%
+  select(number, livestock_qty_sold,price_livestock, livestock_feeding_expense, livestock_labour_expense,livestock_medical_expense,
+         livestock_equipment_expense, livestock_maintain_expense) %>%
+  mutate(across(c(livestock_qty_sold,price_livestock,livestock_feeding_expense, livestock_labour_expense, livestock_medical_expense, livestock_equipment_expense, livestock_maintain_expense), as.numeric)) %>%
+  group_by(number) %>% 
+  summarise(across(where(is.numeric), sum, na.rm = TRUE))
+
+## Merging animal rearing data with main dry season sheet
+  Baseline_drought_data <- Baseline_drought_data %>%
+    
+    mutate(across(everything(), ~ case_when(. == "---" ~ "0",
+                                            . == " " ~ "0",
+                                            is.na(.) ~ "0",
+                                            TRUE ~ as.character(.)))) %>%
+    
+    left_join(Baseline_drought_animals, by = c("number" = "number")) %>% 
+    ## Continue from here
+    rename()
+ 
+    
   
   mutate(animal_income = qty_sold * price_livestock,
          total_expense = rowSums(across(c(feeding_expense,labour_expense, medical_expense, equipment_expense, maintain_expense))),
@@ -368,7 +466,6 @@ Baseline_drought_fish <- Fish_repeat_Survey %>%
   mutate(fish_income = )
   
 
-
   
  ## Calculating gross income in PPP
 
@@ -377,6 +474,8 @@ total_gross_income <- agric_gross + gross_animal + agroforestry_gross
 PPP_gross_income <- round(total_gross_income/PPP)
 PPP_gross_income
 
+# Saving the output 
+write_xlsx(Baseline_drought_data, "Checkd_updated_data.xlsx")
   
 ###-------------------------------------------------------#### 
 
